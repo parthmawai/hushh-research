@@ -51,9 +51,28 @@ contextBridge.exposeInMainWorld("hushh", {
 
     /** @param {string} modelId */
     install: (modelId) => invoke("hushh:models:install", modelId),
+    
+    /** @param {string} modelId */
+    cancelInstall: (modelId) => invoke("hushh:models:cancelInstall", modelId),
 
     /** @param {string} modelId */
     remove: (modelId) => invoke("hushh:models:remove", modelId),
+    
+    /** @returns {Promise<{downloaded: boolean, running: boolean}>} */
+    status: (modelId) => invoke("hushh:models:status", modelId),
+    
+    /** @param {(status: {downloaded: boolean, running: boolean}) => void} callback */
+    onStatusChange: (callback) => {
+      const handler = (event, status) => callback(status);
+      ipcRenderer.on("hushh:models:statusChange", handler);
+      return () => ipcRenderer.removeListener("hushh:models:statusChange", handler);
+    },
+    
+    /** @param {string} modelId */
+    spawn: (modelId) => invoke("hushh:models:spawn", modelId),
+    
+    /** @param {string} modelId */
+    kill: (modelId) => invoke("hushh:models:kill", modelId),
   },
 
   // ── settings ────────────────────────────────────────────────────────────

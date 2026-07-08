@@ -4,6 +4,7 @@
   "main": "electron/main/main.js",
   "scripts": {
     "start": "electron .",
+    "build:backend": "cd backend && uv run build-backend.py",
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
   },
@@ -22,25 +23,17 @@
     },
     "files": [
       "electron/**/*",
-      "config/**/*",
       "package.json",
+      "backend/dist/hushh-backend.exe",
+      "frontend/.env*",
       "frontend/.next/standalone/**/*",
-      "frontend/.next/static/**/*",
-      "frontend/public/**/*",
-      "frontend/.env.local",
-      "backend/api/**/*",
-      "backend/db/**/*",
-      "backend/hushh_mcp/**/*",
-      "backend/hussh_sdk/**/*",
-      "backend/mcp_modules/**/*",
-      "backend/services/**/*",
-      "backend/utils/**/*",
-      "backend/*.py",
-      "backend/pyproject.toml",
-      "backend/requirements.txt",
-      "backend/uv.lock",
-      "backend/.python-version",
       "backend/.env"
+    ],
+    "extraResources": [
+      {
+        "from": "ai-library/geniex",
+        "to": "geniex"
+      }
     ],
     "win": {
       "target": "zip"

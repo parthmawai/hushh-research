@@ -20,6 +20,8 @@ import {
   ExternalLink,
   Fingerprint,
   Folder,
+  DownloadCloud,
+  X,
   KeyRound,
   LifeBuoy,
   Loader2,
@@ -652,6 +654,20 @@ function ProfilePageContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchParamsString = searchParams.toString();
+
+  const [localAiStatus, setLocalAiStatus] = useState({ downloaded: false, running: false, loading: true, isDownloading: false });
+
+  useEffect(() => {
+    let mounted = true;
+    if ((window as any).hushh?.models) {
+      (window as any).hushh.models.status("Llama-3.2-3B-Instruct").then((status: any) => {
+        if (mounted) setLocalAiStatus({ ...status, loading: false });
+      });
+    } else {
+      setLocalAiStatus(s => ({ ...s, loading: false }));
+    }
+    return () => { mounted = false; };
+  }, []);
 
   const {
     user,
@@ -3324,9 +3340,9 @@ function ProfilePageContent() {
         />
         <SettingsRow
           icon={Cloud}
-          title="On-device first"
-          description="Device-first controls."
-          trailing={<Badge variant="secondary">Coming soon</Badge>}
+          title="On-device AI"
+          description="Device-first AI controls."
+          trailing={<Badge variant="secondary">Labs</Badge>}
           chevron
           stackTrailingOnMobile
           onClick={() =>
@@ -4056,15 +4072,110 @@ function ProfilePageContent() {
     } else if (activeDetail === "device") {
       profileStackEntries.push({
         key: "detail:device",
-        title: "On-device first",
-        description: "Local-device controls and upcoming options.",
+        title: "On-device AI",
+        description: "Local-device AI controls and runtime options.",
         content: (
           <SettingsGroup title="Device">
             <SettingsRow
-              icon={Cloud}
-              title="Bring your own key"
-              description="Planned."
-              trailing={<Badge variant="secondary">Coming soon</Badge>}
+              icon={Monitor}
+              title={
+                <span className="inline-flex items-center gap-2">
+                  Local Inference Engine (Qwen3 4B)
+                  <Badge variant="outline" className="gap-1 text-[10px] font-normal">
+                    <AlertTriangle className="h-3 w-3" />
+                    Experimental
+                  </Badge>
+                </span>
+              }
+              description="Downloads the on-device AI runtime and routes chat entirely through the Snapdragon NPU — no data leaves this device. Experimental: responses are slow and it uses several GB of RAM while running."
+              trailing={
+                <div className="flex items-center gap-3">
+                  {!localAiStatus.downloaded && !localAiStatus.isDownloading && (
+                    <Button 
+                      className="bg-transparent hover:bg-muted shadow-none h-9 w-9 rounded-full border border-border p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLocalAiStatus(s => ({ ...s, isDownloading: true }));
+                        toast.loading("Downloading AI Runtime...", { id: "ai-download" });
+                        void (window as any).hushh?.models?.install("Llama-3.2-3B-Instruct")
+                          .then((res: any) => {
+                            if (res?.status === "cancelled") {
+                                toast.dismiss("ai-download");
+                                toast("Download Cancelled");
+                                setLocalAiStatus(s => ({ ...s, isDownloading: false, downloaded: false, running: false, loading: false }));
+                            } else {
+                                toast.success("AI Runtime Downloaded!", { id: "ai-download" });
+                                setLocalAiStatus({ downloaded: true, running: false, loading: false, isDownloading: false });
+                            }
+                          })
+                          .catch((e: Error) => {
+                              toast.error(`Failed: ${e.message}`, { id: "ai-download" });
+                              setLocalAiStatus(s => ({ ...s, isDownloading: false }));
+                          });
+                      }}
+                      title="Download AI Runtime"
+                    >
+                      <DownloadCloud className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {localAiStatus.isDownloading && (
+                    <Button 
+                      className="bg-transparent hover:bg-muted shadow-none h-9 w-9 rounded-full border border-border p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void (window as any).hushh?.models?.cancelInstall("Llama-3.2-3B-Instruct")
+                          .catch((err: Error) => toast.error(`Cancel failed: ${err.message}`));
+                      }}
+                      title="Cancel Download"
+                    >
+                      <X className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
+                  {localAiStatus.downloaded && !localAiStatus.running && (
+                    <Button 
+                      className="bg-transparent hover:bg-muted shadow-none h-9 w-9 rounded-full border border-border p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void (window as any).hushh?.models?.remove("Llama-3.2-3B-Instruct")
+                          .then(() => {
+                            toast.success("AI Engine deleted.");
+                            setLocalAiStatus({ downloaded: false, running: false, loading: false, isDownloading: false });
+                          });
+                      }}
+                      title="Delete local files"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
+                  {localAiStatus.loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : (
+                    <Switch 
+                      disabled={!localAiStatus.downloaded || localAiStatus.isDownloading}
+                      checked={localAiStatus.running} 
+                      onCheckedChange={() => {
+                        if (!localAiStatus.running) {
+                           toast.loading("Spawning NPU Runtime...", { id: "ai-spawn" });
+                           void (window as any).hushh?.models?.spawn("Llama-3.2-3B-Instruct")
+                             .then(() => {
+                               toast.success("NPU Runtime active!", { id: "ai-spawn" });
+                               setLocalAiStatus(s => ({ ...s, downloaded: true, running: true, loading: false }));
+                             })
+                             .catch((e: Error) => toast.error(`Failed: ${e.message}`, { id: "ai-spawn" }));
+                        } else {
+                           toast.loading("Shutting down NPU Runtime...", { id: "ai-kill" });
+                           void (window as any).hushh?.models?.kill("Llama-3.2-3B-Instruct")
+                             .then(() => {
+                               toast.success("NPU Runtime terminated.", { id: "ai-kill" });
+                               setLocalAiStatus(s => ({ ...s, downloaded: true, running: false, loading: false }));
+                             })
+                             .catch((e: Error) => toast.error(`Failed: ${e.message}`, { id: "ai-kill" }));
+                        }
+                      }} 
+                    />
+                  )}
+                </div>
+              }
               stackTrailingOnMobile
             />
           </SettingsGroup>

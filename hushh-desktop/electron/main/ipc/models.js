@@ -17,12 +17,35 @@ function registerModelsHandlers() {
     models:    [],
   }));
 
-  ipcMain.handle("hushh:models:install", (_event, _modelId) => {
-    throw new Error("Model installation not yet implemented.");
+  ipcMain.handle("hushh:models:install", async (_event, modelId) => {
+    const { registry } = require("../services/models/registry");
+    return await registry.provisionGenieXModel(modelId);
   });
 
-  ipcMain.handle("hushh:models:remove", (_event, _modelId) => {
-    throw new Error("Model removal not yet implemented.");
+  ipcMain.handle("hushh:models:cancelInstall", (_event, modelId) => {
+    const { registry } = require("../services/models/registry");
+    return registry.cancelDownloadLocalInferenceEngine(modelId);
+  });
+
+  ipcMain.handle("hushh:models:remove", (_event, modelId) => {
+    const { registry } = require("../services/models/registry");
+    return registry.deleteLocalInferenceEngine(modelId);
+  });
+
+  ipcMain.handle("hushh:models:status", (_event, modelId) => {
+    const { registry } = require("../services/models/registry");
+    return registry.getStatus(modelId);
+  });
+
+  ipcMain.handle("hushh:models:kill", (_event, modelId) => {
+    const { registry } = require("../services/models/registry");
+    return registry.killLocalInferenceEngine(modelId);
+  });
+  
+  ipcMain.handle("hushh:models:spawn", async (_event, modelId) => {
+    const { registry } = require("../services/models/registry");
+    const proc = await registry.spawnLocalInferenceEngine(modelId);
+    return proc ? true : false;
   });
 }
 
