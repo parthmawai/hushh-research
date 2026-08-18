@@ -95,6 +95,7 @@ import type {
   AgentVoiceStatus,
 } from "@/lib/agent/agent-voice-state";
 import { redactSensitiveVoiceTranscript } from "@/lib/voice/voice-sensitive-redaction";
+import { useNetworkStatus } from "@/hooks/use-network-status";
 
 type PrewarmedGeminiRelay = {
   relayUrl: string;
@@ -300,6 +301,7 @@ export function AgentBar({ layout = "fixed" }: { layout?: "fixed" | "slot" }) {
   const setVoiceStatus = useAgentVoiceState((s) => s.setStatus);
   const setVoiceLevel = useAgentVoiceState((s) => s.setLevel);
   const resetVoice = useAgentVoiceState((s) => s.reset);
+  const { offline } = useNetworkStatus();
   const liveClientRef = useRef<RealtimeVoiceTransport | null>(null);
   const latestVoiceContextRef = useRef<OneVoiceContextSnapshot | null>(
     runtime?.oneVoiceContextSnapshot ?? null,
@@ -1276,6 +1278,17 @@ export function AgentBar({ layout = "fixed" }: { layout?: "fixed" | "slot" }) {
       stopConversation();
       return;
     }
+    if (offline) {
+      // Without this, a start attempt while offline reached
+      // resolveGeminiRuntimeConnection and the WebSocket open, then failed
+      // several seconds later with the generic "Voice session could not
+      // start" text -- indistinguishable from a real backend problem. Caught
+      // here, before a lease is even acquired, so the person gets a
+      // connectivity-specific answer immediately instead of a stall.
+      erroredRef.current = true;
+      setVoiceStatus("error", "Voice needs a connection. Check your internet and try again.");
+      return;
+    }
     const lease = appInteractionCoordinator.acquireVoiceLease({
       owner: "one_live",
       onRevoked: () => stopConversationRef.current(),
@@ -1358,6 +1371,7 @@ export function AgentBar({ layout = "fixed" }: { layout?: "fixed" | "slot" }) {
     vaultKey,
     user?.uid,
     setVoiceStatus,
+    offline,
   ]);
 
   // Continuous voice context: when the user navigates while a live session is

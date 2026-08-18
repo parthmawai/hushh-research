@@ -55,10 +55,15 @@ describe("what a spoken Location action is allowed to do", () => {
       (spec) => spec.slot === "duration_hours",
     );
     expect(input?.options).toEqual(["0.5", "1", "4", "24"]);
-    // Not required: saying "share with them" keeps whatever the composer
-    // already shows rather than blocking on a number the person never
-    // intended to give.
-    expect(input?.required).toBe(false);
+    // Required as of #5377: this used to default silently to whatever the
+    // composer already showed when a share was voice-triggered with no
+    // stated duration, which read as the agent never asking at all. Now the
+    // agent must ask "for how long?" before a share can fire -- the same
+    // required-slot gate location.change_share_duration's own duration
+    // already uses, extended to cover the non-journey path too (see
+    // app-goal-client.ts's firstMissingRequiredSlot check in the
+    // !journey branch).
+    expect(input?.required).toBe(true);
   });
 });
 

@@ -93,6 +93,21 @@ export async function startAppGoal(
     : null;
 
   if (!journey || !journeyAction) {
+    // `required_inputs` gating used to only run for journey-shaped actions
+    // (below), so a `local_handler` action's own required slot -- like
+    // location.share_selected's duration -- was purely decorative: nothing
+    // ever refused to run without it, and the local handler's own fallback
+    // default filled the gap silently. This has no bearing on WHY an action
+    // is or isn't a journey (that stays a navigation-safety decision, see
+    // navigation-journey.test.ts) -- it only makes "required" actually mean
+    // something for every action, not just the ones that also happen to
+    // cross a screen boundary.
+    if (journeyAction) {
+      const missing = firstMissingRequiredSlot(journeyAction, slots);
+      if (missing) {
+        return blocked(input.actionId, missing.prompt);
+      }
+    }
     const result = await executeAgentGatewayAction({
       ...input,
       actionId: input.actionId,

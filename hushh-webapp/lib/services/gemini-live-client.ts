@@ -124,6 +124,17 @@ function describeMicError(error: unknown): string {
  * common ones to something the user (or operator) can act on.
  */
 function describeSocketCloseError(event: CloseEvent): string {
+  // A dropped connection with no server-sent reason and a browser that
+  // already knows it's offline is connectivity, not a backend problem --
+  // checked before the generic fallback below, which used to give both the
+  // exact same unhelpful "could not start" text.
+  if (
+    typeof navigator !== "undefined" &&
+    navigator.onLine === false &&
+    !(event.reason || "").trim()
+  ) {
+    return "Voice needs a connection. Check your internet and try again.";
+  }
   const reason = (event.reason || "").trim();
   const lower = reason.toLowerCase();
   if (lower.includes("denied access") || lower.includes("permission_denied")) {
